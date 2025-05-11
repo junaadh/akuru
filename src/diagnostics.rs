@@ -119,7 +119,14 @@ impl Diagnostic {
     }
 
     pub fn can_merge(&mut self, rhs: &Diagnostic) -> bool {
-        self.kind == rhs.kind && self.message == rhs.message
+        self.kind == rhs.kind
+            && self.message == rhs.message
+            && self
+                .labels
+                .first()
+                .zip(rhs.labels.first())
+                .map(|(s, r)| s.span == r.span || s.span.adjacent(r.span))
+                .unwrap_or(true)
     }
 
     pub fn merge(&mut self, rhs: Diagnostic) {
@@ -155,149 +162,71 @@ impl Diagnostic {
 
         self.labels = merged;
     }
-    /*
 
     pub fn render(&self, sm: &SourceMap) {
         let color = self.kind.color();
         eprintln!("{}{}:{}{}", color, self.kind, RESET, self.message);
 
-        for label in self.labels.iter() {
-            let source = &sm[label.span.id];
-            let pos = source.get_pos(label.span);
-
-            match pos {
-                Position::Single(line, col) => {
-                    self.print_line(source, line, col, label, label.span.len(), true)
-                }
-                Position::Multi { lines } => {
-                    let last_idx = lines.len() - 1;
-                    for (i, &pos) in lines.iter().enumerate() {
-                        let is_last = i == last_idx;
-                        self.print_line(source, pos.0, pos.1, label, 1, is_last);
-                    }
-                }
-            }
-        }
-    }
-
-    fn print_line(
-        &self,
-        src: &Source,
-        line_no: usize,
-        col_no: usize,
-        label: &Label,
-        len: usize,
-        show_message: bool,
-    ) {
-        let line_idx = line_no - 1;
-        let line_start = src.line_offsets[line_idx];
-        let line_end = src
-            .line_offsets
-            .get(line_idx + 1)
-            .copied()
-            .unwrap_or(src.content.len());
-        let line_content = &src.content[line_start..line_end];
-
-        eprintln!("{:>4} | {}", line_no, line_content.trim_end());
-
-        print!("     | {}", " ".repeat(col_no.saturating_sub(1)));
-
-        let underline = "^".repeat(len.max(1));
-        let color = match label.style {
-            LabelStyle::Primary => "\x1b[91m",   // bright red
-            LabelStyle::Secondary => "\x1b[94m", // bright blue
-        };
-        print!("{color}{}{RESET}", underline);
-
-        // Optional message
-        if show_message {
-            if let Some(ref msg) = label.message {
-                println!(" {msg}");
-                return;
-            }
-        }
-        println!();
-    }
-    */
-    pub fn render(&self, sm: &SourceMap) {
-        let color = self.kind.color();
-        eprintln!("{}{}:{}{}", color, self.kind, RESET, self.message);
-
-        let mut line_map: BTreeMap<(FileId, usize), Vec<&Label>> = BTreeMap::new();
+        let mut line_map: BTreeMap<(FileId, usize), Vec<(&Label, usize)>> = BTreeMap::new();
 
         for label in &self.labels {
             let source = &sm[label.span.id];
 
             match source.get_pos(label.span) {
-                Position::Single(line, _col) => {
+                Position::Single(line, col) => {
                     line_map
                         .entry((label.span.id, line))
                         .or_default()
-                        .push(label);
+                        .push((label, col));
                 }
                 Position::Multi { lines } => {
-                    for (line, _col) in lines {
+                    for (line, col) in lines {
                         line_map
                             .entry((label.span.id, line))
                             .or_default()
-                            .push(label);
+                            .push((label, col));
                     }
                 }
             }
         }
 
-        // For each line (sorted)
-        for ((file_id, line_no), labels) in line_map {
-            let source = &sm[file_id];
-            self.print_labels_on_line(source, line_no, labels);
-        }
-    }
+        for ((file_id, line_no), mut entries) in line_map {
+            let src = &sm[file_id];
+            let line_idx = line_no - 1;
+            let line_start = src.line_offsets[line_idx];
+            let line_end = src
+                .line_offsets
+                .get(line_idx + 1)
+                .copied()
+                .unwrap_or(src.content.len());
+            let line_content = &src.content[line_start..line_end];
 
-    fn print_labels_on_line(&self, src: &Source, line_no: usize, labels: Vec<&Label>) {
-        let line_idx = line_no - 1;
-        let line_start = src.line_offsets[line_idx];
-        let line_end = src
-            .line_offsets
-            .get(line_idx + 1)
-            .copied()
-            .unwrap_or(src.content.len());
-        let line_content = &src.content[line_start..line_end];
+            // Show header
+            eprintln!("   --> {}:{}:{}", src.name, line_no, entries[0].1);
+            eprintln!("     |");
+            eprintln!("{:>4} | {}", line_no, line_content.trim_end());
 
-        // Print source line
-        eprintln!("{:>4} | {}", line_no, line_content.trim_end());
+            // Sort by column position
+            entries.sort_by_key(|(_, col)| *col);
 
-        // Now print underline lines, one for each label
-        for label in labels {
-            // Column in this line
-            let pos = src.get_pos(label.span);
-            let col = match pos {
-                Position::Single(_, c) => c,
-                Position::Multi { ref lines } => {
-                    // Try to find the line in question
-                    if let Some((_, c)) = lines.iter().find(|(line, _)| *line == line_no) {
-                        *c
-                    } else {
-                        continue;
-                    }
+            for (label, col) in entries {
+                let underline_len = label.span.len().max(1);
+                let underline = "^".repeat(underline_len);
+                let color = match label.style {
+                    LabelStyle::Primary => "\x1b[91m",
+                    LabelStyle::Secondary => "\x1b[94m",
+                };
+
+                print!("     | {}", " ".repeat(col.saturating_sub(1)));
+                print!("{color}{}{RESET}", underline);
+
+                if let Some(ref msg) = label.message {
+                    let snippet = &src.content[label.span.to_range()];
+                    print!(" {}", msg.replace("{}", snippet));
                 }
-            };
 
-            let len = label.span.len().max(1);
-
-            print!("     | {}", " ".repeat(col.saturating_sub(1)));
-
-            let underline = "^".repeat(len);
-            let color = match label.style {
-                LabelStyle::Primary => "\x1b[91m",   // bright red
-                LabelStyle::Secondary => "\x1b[94m", // bright blue
-            };
-            print!("{color}{}{RESET}", underline);
-
-            if let Some(ref msg) = label.message {
-                print!(" {msg}");
+                println!();
             }
-
-            println!();
         }
     }
 }
@@ -334,8 +263,26 @@ impl DiagnosticsBag {
     }
 
     pub fn render_all(self, sm: &SourceMap) {
-        for diag in self.0 {
+        for (idx, diag) in self.0.iter().enumerate() {
+            if idx != 0 {
+                eprintln!();
+            }
             diag.render(sm);
         }
+    }
+}
+
+pub trait Reportable {
+    fn primary(&self, message: impl Into<String>) -> Label;
+    fn secondary(&self, message: impl Into<String>) -> Label;
+}
+
+impl Reportable for Span {
+    fn primary(&self, message: impl Into<String>) -> Label {
+        Label::primary(*self, message)
+    }
+
+    fn secondary(&self, message: impl Into<String>) -> Label {
+        Label::secondary(*self, message)
     }
 }

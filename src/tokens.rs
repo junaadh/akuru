@@ -3,7 +3,6 @@ use crate::span::Span;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum TokenKind {
     Eof, // 0
-    Unknown,
 
     // Hash,     // #
     // Dollar,   // $
@@ -32,19 +31,19 @@ pub enum TokenKind {
     Caret,    // ^
     PipePipe, // ||
     AndAnd,   // &&
+    PlusPlus,
+    MinusMinus,
 
-    Eq,         // =
-    PlusEq,     // +=
-    MinusEq,    // -=
-    StarEq,     // *=
-    SlashEq,    // /=
-    LShiftEq,   // <<=
-    RShiftEq,   // >>=
-    PipeEq,     // |=
-    AndEq,      // &=
-    CaretEq,    // ^=
-    PipePipeEq, // ||=
-    AndAndEq,   // &&=
+    Eq,       // =
+    PlusEq,   // +=
+    MinusEq,  // -=
+    StarEq,   // *=
+    SlashEq,  // /=
+    LShiftEq, // <<=
+    RShiftEq, // >>=
+    PipeEq,   // |=
+    AndEq,    // &=
+    CaretEq,  // ^=
 
     Lt,     // <
     Gt,     // >
@@ -81,7 +80,7 @@ pub enum TokenKind {
 impl TokenKind {
     #[inline]
     pub fn is_assignment(&self) -> bool {
-        (Self::Eq..=Self::AndAndEq).contains(self)
+        (Self::Eq..=Self::CaretEq).contains(self)
     }
 
     #[inline]
@@ -122,9 +121,5 @@ impl Token {
 
     pub fn is_eof(&self) -> bool {
         self.kind == TokenKind::Eof
-    }
-
-    pub fn is_unknown(&self) -> bool {
-        self.kind == TokenKind::Unknown
     }
 }

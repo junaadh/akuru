@@ -1,4 +1,7 @@
-use std::ops::{self, Index, IndexMut};
+use std::{
+    ops::{self, Index, IndexMut, Range},
+    slice,
+};
 
 use crate::source::FileId;
 
@@ -36,6 +39,10 @@ impl Span {
 
     pub fn adjacent(&self, rhs: Span) -> bool {
         self.hi == rhs.lo || self.lo == rhs.hi
+    }
+
+    pub fn to_range(&self) -> Range<usize> {
+        self.lo..self.hi
     }
 }
 
