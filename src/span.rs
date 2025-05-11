@@ -1,14 +1,17 @@
 use std::ops::{self, Index, IndexMut};
 
+use crate::source::FileId;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Span {
+    pub id: FileId,
     pub lo: usize,
     pub hi: usize,
 }
 
 impl Span {
-    pub fn new(lo: usize, hi: usize) -> Self {
-        Self { lo, hi }
+    pub fn new(id: FileId, lo: usize, hi: usize) -> Self {
+        Self { id, lo, hi }
     }
 
     pub fn len(&self) -> usize {
@@ -25,6 +28,7 @@ impl Span {
 
     pub fn offset(self, offset: usize) -> Self {
         Self {
+            id: self.id,
             lo: self.lo + offset,
             hi: self.hi + offset,
         }
@@ -53,9 +57,18 @@ impl ops::Add for Span {
     type Output = Span;
 
     fn add(self, rhs: Self) -> Self::Output {
+        assert_eq!(self.id, rhs.id);
         Self {
+            id: self.id,
             lo: self.lo.min(rhs.lo),
             hi: self.hi.max(rhs.hi),
         }
+    }
+}
+
+impl ops::AddAssign for Span {
+    fn add_assign(&mut self, rhs: Self) {
+        self.lo = self.lo.min(rhs.lo);
+        self.hi = self.hi.max(rhs.hi);
     }
 }

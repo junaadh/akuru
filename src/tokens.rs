@@ -1,0 +1,130 @@
+use crate::span::Span;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum TokenKind {
+    Eof, // 0
+    Unknown,
+
+    // Hash,     // #
+    // Dollar,   // $
+    Dot,      // .
+    Comma,    // ,
+    Colon,    // :
+    Semi,     // ;
+    Question, // ?
+
+    LParen,   // (
+    RParen,   // )
+    LBrace,   // {
+    RBrace,   // }
+    LBracket, // [
+    RBracket, // ]
+
+    Plus,     // +
+    Minus,    // -
+    Star,     // *
+    Slash,    // /
+    Bang,     // !
+    LShift,   // <<
+    RShift,   // >>
+    Pipe,     // |
+    And,      // &
+    Caret,    // ^
+    PipePipe, // ||
+    AndAnd,   // &&
+
+    Eq,         // =
+    PlusEq,     // +=
+    MinusEq,    // -=
+    StarEq,     // *=
+    SlashEq,    // /=
+    LShiftEq,   // <<=
+    RShiftEq,   // >>=
+    PipeEq,     // |=
+    AndEq,      // &=
+    CaretEq,    // ^=
+    PipePipeEq, // ||=
+    AndAndEq,   // &&=
+
+    Lt,     // <
+    Gt,     // >
+    LtEq,   // <=
+    GtEq,   // >=
+    EqEq,   // ==
+    BangEq, // !=
+
+    If,
+    Else,
+    While,
+    For,
+    Loop,
+    Fn,
+    Return,
+    Let,
+    Const,
+    Continue,
+    True,
+    False,
+    Struct,
+    Enum,
+    Match,
+    Break,
+
+    IntLiteral,
+    FloatLiteral,
+    CharLiteral,
+    StringLiteral,
+
+    Ident, // identifier
+}
+
+impl TokenKind {
+    #[inline]
+    pub fn is_assignment(&self) -> bool {
+        (Self::Eq..=Self::AndAndEq).contains(self)
+    }
+
+    #[inline]
+    pub fn is_comparitive(&self) -> bool {
+        (Self::Lt..=Self::BangEq).contains(self)
+    }
+
+    #[inline]
+    pub fn is_keyword(&self) -> bool {
+        (Self::If..=Self::Break).contains(self)
+    }
+
+    #[inline]
+    pub fn is_literal(&self) -> bool {
+        (Self::IntLiteral..=Self::StringLiteral).contains(self)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Token {
+    pub kind: TokenKind,
+    pub span: Span,
+}
+
+impl Token {
+    #[inline]
+    pub fn new(kind: TokenKind, span: Span) -> Self {
+        Self { kind, span }
+    }
+
+    pub fn is_keyword(&self) -> bool {
+        self.kind.is_keyword()
+    }
+
+    pub fn is_literal(&self) -> bool {
+        self.kind.is_literal()
+    }
+
+    pub fn is_eof(&self) -> bool {
+        self.kind == TokenKind::Eof
+    }
+
+    pub fn is_unknown(&self) -> bool {
+        self.kind == TokenKind::Unknown
+    }
+}

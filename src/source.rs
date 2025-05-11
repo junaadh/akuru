@@ -28,10 +28,7 @@ impl Source {
         let name = name.into();
         let content = content.into();
         let line_offsets = std::iter::once(0)
-            .chain(content.as_str().match_indices('\n').map(|(i, _)| {
-                println!("i: {i}, i + 1: {}", i + 1);
-                i + 1
-            }))
+            .chain(content.as_str().match_indices('\n').map(|(i, _)| i + 1))
             .collect();
 
         Self {
@@ -135,7 +132,11 @@ mod tests {
     fn test_get_pos_single_line() {
         let content = "hello world\nsecond line\n";
         let source = Source::with_content("pos.txt", content);
-        let span = Span { lo: 6, hi: 9 };
+        let span = Span {
+            id: FileId(0),
+            lo: 6,
+            hi: 9,
+        };
 
         let pos = source.get_pos(span);
         assert_eq!(pos, Position::Single(1, 7));
@@ -146,7 +147,11 @@ mod tests {
         let content = "line 1\nline 2\nline 3\n";
         let source = Source::with_content("pos_multi.txt", content);
         // span from "1\nline 2\nli"
-        let span = Span { lo: 5, hi: 18 };
+        let span = Span {
+            id: FileId(0),
+            lo: 5,
+            hi: 18,
+        };
 
         let pos = source.get_pos(span);
 
@@ -186,7 +191,11 @@ mod tests {
     fn test_get_pos_exact_line_boundaries() {
         let content = "a\nb\nc\nd\n";
         let source = Source::with_content("pos.rs", content);
-        let span = Span { lo: 2, hi: 4 }; // starts at 'b', ends at 'c'
+        let span = Span {
+            id: FileId(0),
+            lo: 2,
+            hi: 4,
+        }; // starts at 'b', ends at 'c'
 
         let pos = source.get_pos(span);
         assert_eq!(
