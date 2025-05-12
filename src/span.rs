@@ -1,7 +1,4 @@
-use std::{
-    ops::{self, Index, IndexMut, Range},
-    slice,
-};
+use std::ops::{self, Index, IndexMut, Range};
 
 use crate::source::FileId;
 

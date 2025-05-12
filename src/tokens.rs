@@ -123,3 +123,22 @@ impl Token {
         self.kind == TokenKind::Eof
     }
 }
+
+pub trait Lexicable {
+    fn normalize(&self) -> Option<char>;
+}
+
+impl Lexicable for char {
+    fn normalize(&self) -> Option<char> {
+        match self {
+            'n' => Some('\n'),
+            'r' => Some('\r'),
+            't' => Some('\t'),
+            'v' => Some('\x0b'),
+            'b' => Some('\x08'),
+            'a' => Some('\x07'),
+            '0' => Some('\0'),
+            _ => None,
+        }
+    }
+}

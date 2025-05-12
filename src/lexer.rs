@@ -1,10 +1,10 @@
-use std::str::Chars;
+use std::{ops::ControlFlow, str::Chars};
 
 use crate::{
     diagnostics::{Diagnostic, DiagnosticsBag, Reportable},
     source::{FileId, Source},
     span::Span,
-    tokens::{Token, TokenKind},
+    tokens::{Lexicable, Token, TokenKind},
 };
 
 #[derive(Debug, Clone)]
@@ -40,7 +40,16 @@ impl<'src> Lexer<'src> {
 
             kind = match char {
                 '\0' => TokenKind::Eof,
-                // '.' =>
+                '.' => {
+                    if self.first().is_ascii_digit() {
+                        match self.float_suffix() {
+                            ControlFlow::Continue(_) => continue,
+                            ControlFlow::Break(t) => t,
+                        }
+                    } else {
+                        TokenKind::Dot
+                    }
+                }
                 ',' => TokenKind::Comma,
                 ':' => TokenKind::Colon,
                 ';' => TokenKind::Semi,
@@ -52,6 +61,21 @@ impl<'src> Lexer<'src> {
                 '}' => TokenKind::RBrace,
                 '[' => TokenKind::LBracket,
                 ']' => TokenKind::RBracket,
+
+                '=' => {
+                    if self.accept('=') {
+                        TokenKind::EqEq
+                    } else {
+                        TokenKind::Eq
+                    }
+                }
+                '!' => {
+                    if self.accept('=') {
+                        TokenKind::BangEq
+                    } else {
+                        TokenKind::Bang
+                    }
+                }
 
                 '+' => {
                     if self.accept('+') {
@@ -139,7 +163,19 @@ impl<'src> Lexer<'src> {
                         TokenKind::Caret
                     }
                 }
-
+                '0'..='9' => match self.numeric_literals(char) {
+                    ControlFlow::Continue(_) => continue,
+                    ControlFlow::Break(t) => t,
+                },
+                '\'' => match self.character_literal() {
+                    ControlFlow::Continue(_) => continue,
+                    ControlFlow::Break(t) => t,
+                },
+                '"' => match self.string_literal() {
+                    ControlFlow::Continue(_) => continue,
+                    ControlFlow::Break(t) => t,
+                },
+                'a'..='z' | 'A'..='Z' | '_' => self.identifier_or_keyword(),
                 _ => {
                     self.bag.push(
                         Diagnostic::error("syntax error")
@@ -187,7 +223,7 @@ impl<'src> Lexer<'src> {
         self.chars.as_str().is_empty()
     }
 
-    fn bump_while(&mut self, predicate: fn(char) -> bool) {
+    fn bump_while(&mut self, mut predicate: impl FnMut(char) -> bool) {
         while !self.is_eof() && predicate(self.first()) {
             self.bump();
         }
@@ -197,9 +233,9 @@ impl<'src> Lexer<'src> {
         self.bump_while(|c| matches!(c, ' ' | '\r' | '\t' | '\n'));
     }
 
-    // fn check(&self, expected: char) -> bool {
-    //     self.first() == expected
-    // }
+    fn check(&self, expected: char) -> bool {
+        self.first() == expected
+    }
 
     fn accept(&mut self, expected: char) -> bool {
         if self.first() == expected {
@@ -221,4 +257,162 @@ impl<'src> Lexer<'src> {
     //         true
     //     }
     // }
+
+    fn float_suffix(&mut self) -> ControlFlow<TokenKind> {
+        self.bump_while(|x| x.is_ascii_digit());
+
+        if matches!(self.first(), 'e' | 'E') {
+            self.bump();
+            if matches!(self.first(), '+' | '-') {
+                self.bump();
+            }
+
+            if !self.first().is_ascii_digit() {
+                self.bag.push(
+                    Diagnostic::error("syntax error")
+                        .with_label(self.span().primary("invalid float literal"))
+                        .with_label(
+                            Span::new(self.id, self.position(), self.position() + 1)
+                                .secondary("expected digit after float literal exponent"),
+                        ),
+                );
+                return ControlFlow::Continue(());
+            }
+
+            self.bump_while(|x| x.is_ascii_digit());
+        }
+
+        ControlFlow::Break(TokenKind::FloatLiteral)
+    }
+
+    fn numeric_literals(&mut self, cur: char) -> ControlFlow<TokenKind> {
+        let mut base = 10;
+
+        if cur == '0' {
+            match self.first().to_ascii_lowercase() {
+                'x' => {
+                    self.bump();
+                    base = 16;
+                }
+                'b' => {
+                    self.bump();
+                    base = 2;
+                }
+                x if x.is_digit(8) => {
+                    base = 8;
+                }
+                _ => (),
+            }
+        }
+
+        self.bump_while(|c| c.is_digit(base as u32));
+
+        if matches!(self.first(), |'e'| 'E') || self.accept('.') {
+            self.float_suffix()
+        } else {
+            ControlFlow::Break(TokenKind::IntLiteral)
+        }
+    }
+
+    fn character_literal(&mut self) -> ControlFlow<TokenKind> {
+        self.start = self.position();
+        match self.first() {
+            '\'' => {
+                self.bump();
+                self.bag.push(
+                    Diagnostic::error("syntax error")
+                        .with_label(self.span().primary("char literal cannot be empty")),
+                );
+            }
+            '\n' => {
+                self.bag.push(
+                    Diagnostic::error("syntax error")
+                        .with_label(self.span().primary("char literal may not contain new line")),
+                );
+            }
+            '\\' => {
+                self.bump();
+                if self.bump().normalize().is_none() {
+                    self.bag.push(
+                        Diagnostic::error("syntax error")
+                            .with_label(self.span().primary("invalid char literal escape '{}'")),
+                    );
+                }
+            }
+            _ => {
+                self.bump();
+            }
+        }
+
+        if !self.accept('\'') {
+            self.bag.push(
+                Diagnostic::error("syntax error")
+                    .with_label(self.span().primary("expected closing char quote")),
+            );
+        }
+
+        self.start -= 1;
+        ControlFlow::Break(TokenKind::CharLiteral)
+    }
+
+    fn string_literal(&mut self) -> ControlFlow<TokenKind> {
+        while !self.is_eof() && !matches!(self.first(), '"') {
+            match self.first() {
+                '\n' => {
+                    self.bag.push(
+                        Diagnostic::error("syntax error")
+                            .with_label(self.span().primary("strings cannot contain new line")),
+                    );
+                    break;
+                }
+                '\\' => {
+                    self.bump();
+                    if self.first().normalize().is_none() {
+                        self.bag.push(
+                            Diagnostic::error("syntax error").with_label(
+                                self.span().primary("invalid char literal escape '{}'"),
+                            ),
+                        );
+                    }
+                }
+                _ => (),
+            }
+            self.bump();
+        }
+
+        self.bump_while(|c| !matches!(c, '"'));
+        if self.check('\0') || !self.accept('"') {
+            self.bag.push(
+                Diagnostic::error("syntax error")
+                    .with_label(self.span().primary("unexpected end of file within literal")),
+            );
+        }
+
+        ControlFlow::Break(TokenKind::StringLiteral)
+    }
+
+    fn identifier_or_keyword(&mut self) -> TokenKind {
+        self.bump_while(|c| c.is_ascii_alphanumeric() || c == '_');
+
+        let content = &self.content[self.start..self.position()];
+        match content {
+            "if" => TokenKind::If,
+            "else" => TokenKind::Else,
+            "while" => TokenKind::While,
+            "for" => TokenKind::For,
+            "loop" => TokenKind::Loop,
+            "fn" => TokenKind::Fn,
+            "return" => TokenKind::Return,
+            "let" => TokenKind::Let,
+            "const" => TokenKind::Const,
+            "continue" => TokenKind::Continue,
+            "true" => TokenKind::True,
+            "false" => TokenKind::False,
+            "struct" => TokenKind::Struct,
+            "enum" => TokenKind::Enum,
+            "match" => TokenKind::Match,
+            "break" => TokenKind::Break,
+            _ => TokenKind::Ident,
+        }
+    }
 }
