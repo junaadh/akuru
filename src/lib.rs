@@ -1,7 +1,10 @@
+pub mod ast;
 pub mod diagnostics;
 pub mod interner;
 pub mod lexer;
+pub mod parser;
 pub mod precedence;
 pub mod source;
 pub mod span;
 pub mod tokens;
+pub mod ty;

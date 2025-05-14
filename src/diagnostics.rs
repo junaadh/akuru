@@ -1,7 +1,7 @@
 use std::{collections::BTreeMap, fmt};
 
 use crate::{
-    source::{FileId, Position, Source, SourceMap},
+    source::{FileId, Position, SourceMap},
     span::Span,
 };
 

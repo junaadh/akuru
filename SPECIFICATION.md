@@ -5,7 +5,7 @@
 - add `mut` keyword to make it mutable
 - constants are defined with `const` keyword
 - type inferred from context or can specified
-- variables are shadowed
+- shadowing is allowed
 
 ```rust
 let immutable = 1;
@@ -34,5 +34,44 @@ let div = |x: u8, y: u8|: u8 { return x + y; };
 
 ```
 
-## 3. planned but coming later
+## 3. **Section**
+- section is a translational unit like a module
+- sections help group related items
+- they act as namespaces and can be nested
+- the root section is considered as the script root 
  
+```rust
+section math {
+  fn add(x: u8, y: u8): u8 { x + y }
+  fn sub(x: u8, y: u8): u8 { x - y }
+
+  section internal {
+    const identity = 0;
+  }
+}
+```
+
+## 4. **Statments and Expressions**
+- most constructs in akuru are expressions
+- statements include
+  - let declerations
+  - expression stmts
+  - semi-expression (expr;)
+
+```rust
+let value = if condition 42 else 0;
+
+if condition1 == condition2 {
+  print("true")
+} else {
+  print("false")
+}
+
+```
+
+### 5. **Types (WIP)**
+- algebraic types (tuples structs)
+- type inference
+- type aliasing
+- generics
+

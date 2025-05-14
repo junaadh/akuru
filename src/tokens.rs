@@ -68,6 +68,10 @@ pub enum TokenKind {
     Enum,
     Match,
     Break,
+    Pub,
+    Define,
+    Section,
+    Script,
 
     IntLiteral,
     FloatLiteral,
@@ -96,6 +100,33 @@ impl TokenKind {
     #[inline]
     pub fn is_literal(&self) -> bool {
         (Self::IntLiteral..=Self::StringLiteral).contains(self)
+    }
+
+    #[inline(always)]
+    pub fn correspond(content: &str) -> Self {
+        match content {
+            "if" => TokenKind::If,
+            "else" => TokenKind::Else,
+            "while" => TokenKind::While,
+            "for" => TokenKind::For,
+            "loop" => TokenKind::Loop,
+            "fn" => TokenKind::Fn,
+            "return" => TokenKind::Return,
+            "let" => TokenKind::Let,
+            "const" => TokenKind::Const,
+            "continue" => TokenKind::Continue,
+            "true" => TokenKind::True,
+            "false" => TokenKind::False,
+            "struct" => TokenKind::Struct,
+            "enum" => TokenKind::Enum,
+            "match" => TokenKind::Match,
+            "break" => TokenKind::Break,
+            "pub" => TokenKind::Pub,
+            "define" => TokenKind::Define,
+            "section" => TokenKind::Section,
+            "script" => TokenKind::Script,
+            _ => TokenKind::Ident,
+        }
     }
 }
 

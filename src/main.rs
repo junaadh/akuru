@@ -5,7 +5,7 @@ fn main() {
 
     let file = map.with_content(
         "a.ak",
-        "let am: f32 = 990.100; .69e20 12e3 0675 0b1001 0xAe2 \"hello\" \"lmao\" 'g' '\\n' '0' , : ;? () & || |= += ++ [] {}",
+        "let am: f32 = 990.100; .69e20 .89e 12e3 0675 0b1001 10e 0xAe2 \"hel\nlo\" \"lmao\" 'g' '\\n' '0' , : ;? () & || |= += ++ [] {}",
     );
 
     let mut lex = Lexer::new(file, &map[file]);

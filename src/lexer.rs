@@ -175,7 +175,11 @@ impl<'src> Lexer<'src> {
                     ControlFlow::Continue(_) => continue,
                     ControlFlow::Break(t) => t,
                 },
-                'a'..='z' | 'A'..='Z' | '_' => self.identifier_or_keyword(),
+                'a'..='z' | 'A'..='Z' | '_' => {
+                    self.bump_while(|c| matches!(c, 'a'..='z' | 'A'..='Z' | '_'));
+
+                    TokenKind::correspond(&self.content[self.start..self.position()])
+                }
                 _ => {
                     self.bag.push(
                         Diagnostic::error("syntax error")
@@ -389,30 +393,5 @@ impl<'src> Lexer<'src> {
         }
 
         ControlFlow::Break(TokenKind::StringLiteral)
-    }
-
-    fn identifier_or_keyword(&mut self) -> TokenKind {
-        self.bump_while(|c| c.is_ascii_alphanumeric() || c == '_');
-
-        let content = &self.content[self.start..self.position()];
-        match content {
-            "if" => TokenKind::If,
-            "else" => TokenKind::Else,
-            "while" => TokenKind::While,
-            "for" => TokenKind::For,
-            "loop" => TokenKind::Loop,
-            "fn" => TokenKind::Fn,
-            "return" => TokenKind::Return,
-            "let" => TokenKind::Let,
-            "const" => TokenKind::Const,
-            "continue" => TokenKind::Continue,
-            "true" => TokenKind::True,
-            "false" => TokenKind::False,
-            "struct" => TokenKind::Struct,
-            "enum" => TokenKind::Enum,
-            "match" => TokenKind::Match,
-            "break" => TokenKind::Break,
-            _ => TokenKind::Ident,
-        }
     }
 }
