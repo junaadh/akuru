@@ -6,11 +6,15 @@ pub enum TokenKind {
 
     // Hash,     // #
     // Dollar,   // $
-    Dot,      // .
-    Comma,    // ,
-    Colon,    // :
-    Semi,     // ;
-    Question, // ?
+    Dot,        // .
+    DotDot,     // ..
+    DotDotDot,  // ...
+    DotDotEq,   // ..=
+    Comma,      // ,
+    Colon,      // :
+    ColonColon, // ::
+    Semi,       // ;
+    Question,   // ?
 
     LParen,   // (
     RParen,   // )
@@ -72,6 +76,12 @@ pub enum TokenKind {
     Define,
     Section,
     Script,
+    Open,
+    Root,
+    SelfUp,
+    SelfLow,
+    Mut,
+    As,
 
     IntLiteral,
     FloatLiteral,
@@ -125,6 +135,12 @@ impl TokenKind {
             "define" => TokenKind::Define,
             "section" => TokenKind::Section,
             "script" => TokenKind::Script,
+            "open" => TokenKind::Open,
+            "root" => TokenKind::Root,
+            "Self" => TokenKind::SelfUp,
+            "self" => TokenKind::SelfLow,
+            "mut" => TokenKind::Mut,
+            "as" => TokenKind::As,
             _ => TokenKind::Ident,
         }
     }

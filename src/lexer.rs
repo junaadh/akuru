@@ -46,12 +46,26 @@ impl<'src> Lexer<'src> {
                             ControlFlow::Continue(_) => continue,
                             ControlFlow::Break(t) => t,
                         }
+                    } else if self.accept('.') {
+                        if self.accept('.') {
+                            TokenKind::DotDotDot
+                        } else if self.accept('=') {
+                            TokenKind::DotDotEq
+                        } else {
+                            TokenKind::DotDot
+                        }
                     } else {
                         TokenKind::Dot
                     }
                 }
                 ',' => TokenKind::Comma,
-                ':' => TokenKind::Colon,
+                ':' => {
+                    if self.accept(':') {
+                        TokenKind::ColonColon
+                    } else {
+                        TokenKind::Colon
+                    }
+                }
                 ';' => TokenKind::Semi,
                 '?' => TokenKind::Question,
 
@@ -202,18 +216,6 @@ impl<'src> Lexer<'src> {
         self.chars.clone().next().unwrap_or('\0')
     }
 
-    // fn second(&self) -> char {
-    //     let mut cloned = self.chars.clone();
-    //     cloned.next();
-    //     cloned.next().unwrap_or('\0')
-    // }
-    // fn third(&self) -> char {
-    //     let mut cloned = self.chars.clone();
-    //     cloned.next();
-    //     cloned.next();
-    //     cloned.next().unwrap_or('\0')
-    // }
-
     fn position(&self) -> usize {
         self.content.len() - self.chars.as_str().len()
     }
@@ -249,18 +251,6 @@ impl<'src> Lexer<'src> {
             false
         }
     }
-
-    // fn consume(&mut self, expected: char) -> bool {
-    //     if !self.accept(expected) {
-    //         self.bag.push(Diagnostic::error(format!(
-    //             "expected char '{}', found '{{}}'",
-    //             expected
-    //         )));
-    //         false
-    //     } else {
-    //         true
-    //     }
-    // }
 
     fn float_suffix(&mut self) -> ControlFlow<TokenKind> {
         self.bump_while(|x| x.is_ascii_digit());
